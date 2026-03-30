@@ -1,0 +1,16 @@
+export const NUTRIENT = {
+  ENERGY: '208',
+  PROTEIN: '203',
+  FAT: '204',
+  CARBS: '205',
+  FIBER: '291',
+  SUGAR: '269',
+  SODIUM: '307',
+  CALCIUM: '301',
+  IRON: '303',
+  VITAMIN_C: '401',
+  VITAMIN_D: '328',
+  POTASSIUM: '306',
+  MAGNESIUM: '304',
+  ZINC: '309',
+} as const;

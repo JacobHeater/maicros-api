@@ -1,0 +1,2 @@
+# Keep vectors.json minified and untouched by Prettier
+src/data/usda/vectors.json

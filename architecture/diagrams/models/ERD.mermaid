@@ -1,0 +1,115 @@
+%% Class diagram view with styling and legend
+classDiagram
+
+%% (styling removed to avoid renderer concatenation bugs)
+class Entity {
+    +id: string
+}
+
+class CrudTimes {
+    +createdAt: Date
+    +updatedAt: Date (optional)
+}
+
+class CrudIdentity {
+    +createdBy: string
+    +updatedBy: string (optional)
+}
+
+class User {
+    +firstName: string
+    +lastName: string
+    +email: string
+    +dateOfBirth: Date
+    +verified: boolean
+    +isActive: boolean
+    +createdAt: Date
+    +updatedAt: Date (optional)
+}
+
+class Macronutrients {
+    +carbohydrates: number
+    +fat: number
+    +protein: number
+}
+
+class Micronutrients {
+    +vitminA: number (optional)
+    +vitaminC: number (optional)
+    +vitaminD: number (optional)
+    +vitaminE: number (optional)
+    +vitaminK: number (optional)
+}
+
+class FoodItem {
+    +name: string
+    +manufacturer: string
+    +description: string (optional)
+    +carbohydrates: number
+    +fat: number
+    +protein: number
+    +fiber: number
+    +servingSize: number
+    +servingUnit: string
+    +weightPerServing: number
+    +category: string (optional)
+    +upc: string (optional)
+    +isVegan: boolean (optional)
+    +isVegetarian: boolean (optional)
+    +isGlutenFree: boolean (optional)
+    +isOrganic: boolean (optional)
+    +createdAt: Date
+    +updatedAt: Date (optional)
+}
+
+class FoodItemIngredient {
+    +foodItemId: string
+    +name: string
+    +createdAt: Date
+    +updatedAt: Date (optional)
+}
+
+class FoodItemAllergen {
+    +foodItemId: string
+    +name: string
+    +createdAt: Date
+    +updatedAt: Date (optional)
+}
+
+class UserAuthenticationOtp {
+    +userId: string
+    +otp: string
+    +expiresAt: Date
+    +isConsumed: boolean
+}
+
+%% Apply styles
+%% class style assignments removed (keep plain classes for correct rendering)
+
+%% Inheritance / composition
+Entity <|-- User
+Entity <|-- FoodItem
+Entity <|-- FoodItemIngredient
+Entity <|-- FoodItemAllergen
+Entity <|-- UserAuthenticationOtp
+
+CrudTimes <|.. FoodItem
+CrudIdentity <|.. FoodItem
+Macronutrients <|.. FoodItem
+Micronutrients <|.. FoodItem
+CrudTimes <|.. UserAuthenticationOtp
+
+%% Associations (cardinality shown)
+User "1" o-- "*" FoodItem : created_by/updated_by
+User "1" o-- "*" FoodItemIngredient : created_by/updated_by
+User "1" o-- "*" FoodItemAllergen : created_by/updated_by
+User "1" o-- "*" UserAuthenticationOtp : authentication_otps
+
+FoodItem "1" o-- "*" FoodItemIngredient : contains
+FoodItem "1" o-- "*" FoodItemAllergen : contains
+
+%% Legend (commented because note block caused parse issues)
+%% (optional) = nullable field (visual only)
+%% created_by/updated_by link = FK to User.id
+
+
