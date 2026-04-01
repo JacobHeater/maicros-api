@@ -1,3 +1,6 @@
+import { logger } from '@//logging/logger';
+import { ILogger } from '@//logging/logger-base';
+
 export interface ToolDefinition {
   name: string;
   description: string;
@@ -20,6 +23,7 @@ export interface ToolResult {
 }
 
 export abstract class BaseTool {
+  protected logger: ILogger = logger;
   abstract definition: ToolDefinition;
   abstract execute(args: Record<string, unknown>): Promise<unknown>;
 }

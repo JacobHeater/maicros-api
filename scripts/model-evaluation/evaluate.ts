@@ -1,9 +1,8 @@
-import { AgentRunResult, AgentService } from '@/services/llm/agent/agent.service';
-import { LLMService } from '@/services/llm/llm.service';
-import { FoodLookupTool } from '@/services/llm/tools/nutrition/food/food-lookup.tool';
-import { ToolRegistry } from '@/services/llm/tools/tool-registry.service';
-import { EmbeddingService } from '@/services/nutrition/embedding/embedding.service';
-import { FoodService } from '@/services/nutrition/food/food.service';
+import 'dotenv/config';
+import 'reflect-metadata';
+import { AgentRunResult } from '@/models/llm/agent/agent-data';
+import { AgentService } from '@/services/llm/agents/agent.service';
+import { ServiceModule } from '@/services/service.module';
 
 const testCases = [
   {
@@ -27,14 +26,13 @@ const testCases = [
 ];
 
 (async () => {
-  const llmService = new LLMService();
-  const toolRegistry = new ToolRegistry();
-  toolRegistry.register(new FoodLookupTool(new FoodService(new EmbeddingService())));
-  const agentService = new AgentService(llmService, toolRegistry);
+  const serviceModule = new ServiceModule();
+  await serviceModule.initialize();
+  const agentService = serviceModule.container.get(AgentService)!;
 
   for (const { input, assert } of testCases) {
     console.log(`\n=== Testing input: "${input}" ===`);
-    const result = await agentService.run(input, []);
+    const result: AgentRunResult = await agentService.run(input, []);
     const assertions = assert(result);
     assertions.forEach((passed, idx) => {
       if (passed) {

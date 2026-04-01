@@ -1,8 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { ServiceBase } from '../../service-base';
+import { Injectable } from '../../injectable';
 import { BaseTool, ToolCall, ToolDefinition, ToolResult } from './tools.interfaces';
 
 @Injectable()
-export class ToolRegistry {
+export class ToolRegistryService extends ServiceBase {
+  constructor() {
+    super();
+  }
+
   private tools = new Map<string, BaseTool>();
 
   register(tool: BaseTool) {
@@ -21,7 +26,7 @@ export class ToolRegistry {
     try {
       return { toolName: call.toolName, result: await tool.execute(call.args) };
     } catch (err) {
-      return { toolName: call.toolName, result: null, error: err.message };
+      return { toolName: call.toolName, result: null, error: (err as Error).message };
     }
   }
 }

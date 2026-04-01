@@ -1,8 +1,6 @@
-// tools/food-lookup.tool.ts
-import { Injectable } from '@nestjs/common';
+import { FoodService, FoodRecord } from '@/services/nutrition/food.service';
+import { Injectable } from '@/services/injectable';
 import { BaseTool, ToolDefinition } from '../../tools.interfaces';
-import { FoodService } from '@/services/nutrition/food/food.service';
-import { NUTRIENT } from '@/models/nutrition/nutrition-constants';
 
 @Injectable()
 export class FoodLookupTool extends BaseTool {
@@ -13,19 +11,24 @@ export class FoodLookupTool extends BaseTool {
   definition: ToolDefinition = {
     name: 'lookup_food',
     description:
-      'Search the USDA database for a food item by name. ' +
-      'Provide amount_description when the user specifies a quantity — this returns scaled values ' +
-      'and avoids a separate calculation step.',
+      'Search the Open Food Facts database for a single food item by name. ' +
+      'Call this once per food item — do not combine multiple foods into one call. ' +
+      'Provide amount_description when an amount is known (explicit or inferred).',
     parameters: {
       type: 'object',
       properties: {
         food_name: {
           type: 'string',
-          description: 'Food name to look up, e.g. "chicken breast" or "cooked brown rice"',
+          description: 'Single food item to look up, e.g. "grilled chicken breast"',
+        },
+        search_term: {
+          type: 'string',
+          description: 'Optimized search term, e.g. "chicken breast"',
         },
         amount_description: {
           type: 'string',
-          description: 'Optional amount consumed, e.g. "200g", "1 cup", "3 oz". Omit if unknown.',
+          description:
+            'Amount consumed, e.g. "200g", "1 tsp (5g)", "1 cup". Omit if truly unknown.',
         },
       },
       required: ['food_name'],
@@ -33,51 +36,77 @@ export class FoodLookupTool extends BaseTool {
   };
 
   async execute(args: Record<string, unknown>): Promise<unknown> {
-    const matches = await this.foodService.searchFood(args.food_name as string);
-    if (!matches.length) return { error: `No USDA match found for "${args.food_name}"` };
+    const rawFoodName = args.food_name as string;
+    // Safely grab the pre-calculated search term, fallback to raw name if missing
+    const searchTerm = (args.search_term as string) || rawFoodName;
 
-    const { food, score } = matches[0];
-    const n = (nbr: string) => this.foodService.getNutrient(food, nbr)?.amount ?? 0;
+    this.logger.debug(`Searching: "${rawFoodName}" → normalized: "${searchTerm}"`);
+
+    // 1. Search using the optimized term
+    let results = this.foodService.search(searchTerm, 5, true);
+
+    // 2. If no results, and the search term was different, fallback to the raw name
+    if (!results.length && searchTerm !== rawFoodName) {
+      this.logger.debug(`No match for "${searchTerm}", falling back to "${rawFoodName}"`);
+      results = this.foodService.search(rawFoodName, 5, true);
+    }
+
+    if (!results.length) {
+      return { error: `No database match found for "${rawFoodName}"` };
+    }
+
+    const { food, rank } = results[0];
+    this.logger.debug(`Top match: "${food.productName}" (rank: ${rank})`);
 
     const result: Record<string, unknown> = {
-      fdcId: food.fdcId,
-      name: food.description,
-      matchScore: +score.toFixed(3),
-      per100g: {
-        calories: n(NUTRIENT.ENERGY),
-        protein_g: n(NUTRIENT.PROTEIN),
-        carbs_g: n(NUTRIENT.CARBS),
-        fat_g: n(NUTRIENT.FAT),
-        fiber_g: n(NUTRIENT.FIBER),
-        sugar_g: n(NUTRIENT.SUGAR),
-        sodium_mg: n(NUTRIENT.SODIUM),
-        calcium_mg: n(NUTRIENT.CALCIUM),
-        iron_mg: n(NUTRIENT.IRON),
-        vitamin_c_mg: n(NUTRIENT.VITAMIN_C),
-        vitamin_d_mcg: n(NUTRIENT.VITAMIN_D),
-      },
-      knownPortions: food.portions.slice(0, 4).map(p => ({
-        description: p.modifier,
-        grams: p.gramWeight,
-      })),
+      id: food.id,
+      name: food.productName,
+      code: food.code,
+      per100g: this.buildNutrients(food),
+      servingSize: food.servingSize ?? null,
     };
 
     if (args.amount_description) {
-      const grams = this.foodService.resolveGrams(food, args.amount_description as string);
-      const s = (nbr: string) => this.foodService.scaleNutrient(food, nbr, grams);
+      // Strip leading asterisk that may have been injected by the decomposed
+      // food list's inferred-amount flag before resolving to grams
+      const amountRaw = (args.amount_description as string).replace(/^\*\s*/, '').trim();
+      const grams = this.foodService.resolveGrams(amountRaw);
       result.forAmount = {
-        description: args.amount_description,
+        description: amountRaw,
         grams,
-        calories: s(NUTRIENT.ENERGY),
-        protein_g: s(NUTRIENT.PROTEIN),
-        carbs_g: s(NUTRIENT.CARBS),
-        fat_g: s(NUTRIENT.FAT),
-        fiber_g: s(NUTRIENT.FIBER),
-        sugar_g: s(NUTRIENT.SUGAR),
-        sodium_mg: s(NUTRIENT.SODIUM),
+        ...this.buildScaledNutrients(food, grams),
       };
     }
 
     return result;
+  }
+
+  private buildNutrients(food: FoodRecord): Record<string, number | null> {
+    return {
+      calories: food.energyKcal,
+      protein_g: food.proteinsG,
+      carbs_g: food.carbohydratesG,
+      fat_g: food.fatG,
+      fiber_g: food.fiberG,
+      sugar_g: food.sugarsG,
+      sodium_mg: food.sodiumG !== null ? +(food.sodiumG * 1000).toFixed(2) : null,
+      calcium_mg: food.calciumMg,
+      iron_mg: food.ironMg,
+      vitamin_d_mcg: food.vitaminDMcg,
+    };
+  }
+
+  private buildScaledNutrients(food: FoodRecord, grams: number): Record<string, number | null> {
+    const s = (val: number | null) => this.foodService.scaleNutrient(val, grams);
+    return {
+      calories: s(food.energyKcal),
+      protein_g: s(food.proteinsG),
+      carbs_g: s(food.carbohydratesG),
+      fat_g: s(food.fatG),
+      fiber_g: s(food.fiberG),
+      sugar_g: s(food.sugarsG),
+      sodium_mg:
+        food.sodiumG !== null ? this.foodService.scaleNutrient(food.sodiumG * 1000, grams) : null,
+    };
   }
 }

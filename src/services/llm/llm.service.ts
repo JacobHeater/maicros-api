@@ -1,33 +1,19 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ChatMessage } from '../common/models/chat-message';
-
-export interface InferenceOptions {
-  maxTokens?: number;
-  temperature?: number;
-}
-
-export interface OllamaMessage {
-  content: string;
-}
-
-export interface OllamaResponse {
-  message: OllamaMessage;
-}
-
-export interface LlmStreamChunk {
-  content: string;
-  isLastMessage: boolean;
-}
+import { ChatMessage } from '@//models/chat/chat-message';
+import { InferenceOptions } from '@//models/llm/llm-data';
+import { ServiceBase } from '../service-base';
+import { OllamaResponse } from '@//models/llm/ollama/ollama-data';
+import { Injectable } from '../injectable';
 
 @Injectable()
-export class LLMService {
-  private readonly logger = new Logger(LLMService.name);
+export class LLMService extends ServiceBase {
   private readonly baseUrl: string;
   private readonly model: string;
 
   constructor() {
+    super();
+
     this.baseUrl = process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434';
-    this.model = process.env.OLLAMA_MODEL ?? 'llama3.1:8b-instruct-q8_0';
+    this.model = process.env.OLLAMA_MODEL ?? 'qwen2.5:32b-instruct-q3_K_L';
   }
 
   async complete(
@@ -41,7 +27,7 @@ export class LLMService {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: this.model,
+          model: options.model ?? this.model,
           messages,
           stream: false,
           options: {
@@ -75,7 +61,7 @@ export class LLMService {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: this.model,
+        model: options.model ?? this.model,
         messages,
         stream: true,
         options: {

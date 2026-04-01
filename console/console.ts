@@ -1,12 +1,9 @@
 import 'dotenv/config';
+import 'reflect-metadata';
 import io from 'readline-sync';
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from '@/app.module';
-import { ToolRegistry } from '@/services/llm/tools/tool-registry.service';
-import { FoodLookupTool } from '@/services/llm/tools/nutrition/food/food-lookup.tool';
-import { FoodService } from '@/services/nutrition/food/food.service';
-import { AgentService } from '@/services/llm/agent/agent.service';
-import { ChatMessageRole } from '@/services/common/models/chat-message';
+import { ServiceModule } from '@/services/service.module';
+import { AgentService } from '@/services/llm/agents/agent.service';
+import { ChatMessageRole } from '@/models/chat/chat-message';
 
 const meal =
   process.env.MEAL ??
@@ -18,24 +15,24 @@ if (!meal) {
 }
 
 (async () => {
-  const app = await NestFactory.createApplicationContext(AppModule);
+  const serviceModule = new ServiceModule();
+  await serviceModule.initialize();
+
+  const container = serviceModule.container;
+
   try {
-    const toolRegistry = app.get(ToolRegistry);
-    const foodService = app.get(FoodService);
-    if (toolRegistry && foodService) {
-      toolRegistry.register(new FoodLookupTool(foodService));
-    }
+    const agentService = container.get(AgentService);
+    if (agentService) {
+      const result = await agentService.run(meal, []);
+      const messages = result.finalMessages.filter(
+        message => message.role === ChatMessageRole.Assistant
+      );
 
-    const agentService = app.get(AgentService);
-    const result = await agentService.run(meal, []);
-    const messages = result.finalMessages.filter(
-      message => message.role === ChatMessageRole.Assistant
-    );
-
-    for (const message of messages) {
-      console.log(message.content);
+      for (const message of messages) {
+        console.log(message.content);
+      }
     }
-  } finally {
-    await app.close();
+  } catch (error) {
+    console.error('An error occurred during execution:', error);
   }
 })();
