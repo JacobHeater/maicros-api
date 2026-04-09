@@ -3,12 +3,10 @@ import { Router, Response } from 'express';
 
 export class HealthRoute extends RouteBase {
   define(): void {
-    this.getHealthStatus();
+    this.router.get('/', this.getHealthStatus);
   }
 
-  private getHealthStatus(): void {
-    this.router.get('/', (_, res: Response) => {
-      res.status(200).json({ status: 'healthy' });
-    });
+  public getHealthStatus(_, res: Response): void {
+    res.status(200).json({ status: 'healthy' });
   }
 }

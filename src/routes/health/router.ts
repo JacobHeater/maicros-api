@@ -3,5 +3,5 @@ import { HealthRoute } from './health.route';
 
 export class HealthRouter extends RouterBase {
   readonly path = '/health';
-  routes: IRoute[] = [new HealthRoute(this.app)];
+  routes: IRoute[] = [new HealthRoute(this.router)];
 }

@@ -6,7 +6,7 @@ export interface IRouter {
 }
 
 export interface IRoute {
-  define(app: Router): void;
+  define(): void;
 }
 
 export abstract class RouterBase implements IRouter {
@@ -15,10 +15,11 @@ export abstract class RouterBase implements IRouter {
   routes: IRoute[] = [];
   abstract readonly path: string;
 
+  protected readonly router: Router = Router();
+
   register(): void {
-    const router = Router();
-    this.routes.forEach(route => route.define(router));
-    this.app.use(this.path, router);
+    this.routes.forEach(route => route.define());
+    this.app.use(this.path, this.router);
   }
 }
 
